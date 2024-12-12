@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Çay ve Su Durumu</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Firebase -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+        import { getDatabase, ref, set, get, child, onValue, push, update } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-database.js";
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyDAnEvh5L1GuMbNj8JuXPS7S9qjXus5oW8",
+            authDomain: "cay-durumu-sonhalins.firebaseapp.com",
+            databaseURL: "https://cay-durumu-sonhalins-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "cay-durumu-sonhalins",
+            storageBucket: "cay-durumu-sonhalins.firebasestorage.app",
+            messagingSenderId: "19029037914",
+            appId: "1:19029037914:web:2de6699e62f2b555851963",
+            measurementId: "G-YK481YCE2B"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+        
+        window.database = database;
+        window.dbRef = ref;
+        window.dbSet = set;
+        window.dbGet = get;
+        window.dbChild = child;
+        window.dbOnValue = onValue;
+        window.dbPush = push;
+        window.dbUpdate = update;
+    </script>
+</head>
+<body>
+    <!-- Ana Ekran -->
+    <div class="container">
+        <!-- Üst Bölüm: Çay ve Su Durumu -->
+        <div class="status-section">
+            <div class="status-card" id="tea-status">
+                <h2>Çay Durumu</h2>
+                <div class="status-content">
+                    <p id="tea-message">Hazır Değil!</p>
+                    <p id="tea-timer" class="timer"></p>
+                </div>
+            </div>
+            <div class="status-card" id="water-status">
+                <h2>Su Durumu</h2>
+                <div class="status-content">
+                    <p id="water-message">Hazır Değil!</p>
+                    <p id="water-timer" class="timer"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alt Bölüm: Bilgi Kartları -->
+        <div class="info-section">
+            <div class="info-card">
+                <h3><i class="fas fa-box"></i> Çay Paketi Durumu</h3>
+                <p id="tea-package-status">1 Paket Çay Mevcut</p>
+            </div>
+            <div class="info-card">
+                <h3><i class="far fa-clock"></i> Çay İçme Saatleri</h3>
+                <ul id="tea-times">
+                    <li>09:00 - Sabah Çayı</li>
+                    <li>12:00 - Öğle Çayı</li>
+                    <li>15:00 - İkindi Çayı</li>
+                </ul>
+            </div>
+            <div class="info-card">
+                <h3><i class="fas fa-coins"></i> Çay Ücreti</h3>
+                <p id="tea-price">0 TL</p>
+                <p id="tea-date">2024-12-12</p>
+            </div>
+        </div>
+
+        <!-- Geri Bildirim Bölümü -->
+        <div class="feedback-section">
+            <div class="feedback-content">
+                <div class="feedback-header">
+                    <h3>Geri Bildirim</h3>
+                    <button class="feedback-minimize" onclick="minimizeFeedback()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="feedback-form">
+                    <input type="text" id="feedback-name" placeholder="İsim (Opsiyonel)">
+                    <textarea id="feedback-text" placeholder="Geri bildiriminizi buraya yazın..."></textarea>
+                    <button onclick="submitFeedback()">Gönder</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Giriş Modal -->
+    <div id="admin-login-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Admin Girişi</h2>
+                <button class="modal-close" onclick="closeModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="username" placeholder="Kullanıcı Adı">
+                <input type="password" id="password" placeholder="Şifre">
+                <div class="remember-me">
+                    <input type="checkbox" id="remember">
+                    <label for="remember">Giriş Bilgilerini Hatırla</label>
+                </div>
+                <button onclick="adminLogin()">Giriş</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Panel -->
+    <div id="admin-panel" class="admin-panel">
+        <div class="admin-header">
+            <h2>Admin Paneli</h2>
+            <div class="admin-controls">
+                <button onclick="minimizePanel()"><i class="fas fa-window-minimize"></i></button>
+                <button onclick="maximizePanel()"><i class="fas fa-window-maximize"></i></button>
+                <button onclick="closePanel()"><i class="fas fa-times"></i></button>
+            </div>
+        </div>
+        <div class="admin-content">
+            <!-- Çay Durumu Yönetimi -->
+            <div class="admin-section">
+                <h3><i class="fas fa-mug-hot"></i> Çay Durumu Yönetimi</h3>
+                <div class="status-buttons">
+                    <button onclick="setTeaStatus('Hazır')" class="status-ready">Çay Hazır</button>
+                    <button onclick="setTeaStatus('Bitmek Üzere')" class="status-warning">Çay Bitmek Üzere</button>
+                    <button onclick="setTeaStatus('Bitti')" class="status-empty">Çay Bitti</button>
+                    <button onclick="setTeaStatus('Hazır Değil')" class="status-not-ready">Çay Hazır Değil</button>
+                </div>
+                <div class="timer-control">
+                    <input type="number" id="tea-timer-input" placeholder="Dakika">
+                    <button onclick="startTeaTimer()">Sayacı Başlat</button>
+                </div>
+            </div>
+
+            <!-- Su Durumu Yönetimi -->
+            <div class="admin-section">
+                <h3><i class="fas fa-tint"></i> Su Durumu Yönetimi</h3>
+                <div class="status-buttons">
+                    <button onclick="setWaterStatus('Hazır')" class="status-ready">Su Hazır</button>
+                </div>
+                <div class="timer-control">
+                    <input type="number" id="water-timer-input" placeholder="Dakika">
+                    <button onclick="startWaterTimer()">Sayacı Başlat</button>
+                </div>
+            </div>
+
+            <!-- Çay Paketi Durumu Yönetimi -->
+            <div class="admin-section">
+                <h3><i class="fas fa-box"></i> Çay Paketi Durumu Yönetimi</h3>
+                <div class="input-group">
+                    <input type="number" id="tea-package-input" placeholder="Paket sayısı" min="0">
+                    <button onclick="updateTeaPackage()">Güncelle</button>
+                </div>
+            </div>
+
+            <!-- Çay İçme Saatleri Yönetimi -->
+            <div class="admin-section">
+                <h3><i class="far fa-clock"></i> Çay İçme Saatleri Yönetimi</h3>
+                <div class="input-group">
+                    <textarea id="tea-times-input" placeholder="Her satıra bir saat yazın&#10;Örnek:&#10;09:00 - Sabah Çayı" style="min-height: 80px; max-height: 120px;"></textarea>
+                    <button onclick="updateTeaTimes()">Güncelle</button>
+                </div>
+            </div>
+
+            <!-- Çay Ücreti Yönetimi -->
+            <div class="admin-section">
+                <h3><i class="fas fa-coins"></i> Çay Ücreti Yönetimi</h3>
+                <div class="input-group">
+                    <div class="price-inputs">
+                        <input type="number" id="tea-price-input" placeholder="Ücret (TL)" min="0" step="0.5">
+                        <input type="text" id="tea-date-input" placeholder="GG.AA.YYYY">
+                    </div>
+                    <button onclick="updateTeaPrice()">Güncelle</button>
+                </div>
+            </div>
+
+            <!-- Geri Bildirimler -->
+            <div class="admin-section">
+                <h3><i class="fas fa-comments"></i> Geri Bildirimler</h3>
+                <div id="feedback-list" class="feedback-list">
+                    <!-- Geri bildirimler JavaScript ile buraya eklenecek -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Panel Açma Butonu -->
+    <button id="admin-toggle" onclick="showAdminLogin()">
+        <i class="fas fa-user-shield"></i>
+    </button>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html> 
